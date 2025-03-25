@@ -690,5 +690,89 @@ const DekontInceleme = () => {
                             closeImagePreview();
                           }}
                           className="px-4 py-2 rounded-lg bg-success text-white hover:bg-success/90 transition-colors"
-                       
+                        >
+                          <CheckCircle size={14} className="mr-1 inline-block" />
+                          Onayla
+                        </button>
+                        <button
+                          onClick={() => {
+                            openRejectionDialog(selectedReceiptId);
+                            closeImagePreview();
+                          }}
+                          className="px-4 py-2 rounded-lg bg-destructive text-white hover:bg-destructive/90 transition-colors"
+                        >
+                          <XCircle size={14} className="mr-1 inline-block" />
+                          Reddet
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Red Nedeni Modal */}
+      {isRejectionDialogOpen && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+          <div className="relative bg-background rounded-lg shadow-2xl max-w-md w-full p-6 animate-scale-in">
+            <h3 className="text-lg font-medium mb-4">Dekontu Reddet</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Lütfen red nedenini seçin ve gerekirse açıklama ekleyin.
+            </p>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium">Red Nedeni *</label>
+                <select
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  className="input-field w-full mt-1"
+                >
+                  <option value="">Seçiniz...</option>
+                  <option value="Eksik bilgi">Eksik bilgi</option>
+                  <option value="Hatalı bilgi">Hatalı bilgi</option>
+                  <option value="Okunamayan dekont">Okunamayan dekont</option>
+                  <option value="Geçersiz dekont">Geçersiz dekont</option>
+                  <option value="Yanlış tutar">Yanlış tutar</option>
+                  <option value="Diğer">Diğer</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="text-sm font-medium">Açıklama (İsteğe bağlı)</label>
+                <textarea
+                  value={rejectionNote}
+                  onChange={(e) => setRejectionNote(e.target.value)}
+                  placeholder="Ek açıklama..."
+                  className="input-field w-full mt-1 h-24 resize-none"
+                />
+              </div>
+              
+              <div className="flex justify-end gap-2 mt-6">
+                <button
+                  onClick={closeRejectionDialog}
+                  className="px-4 py-2 border rounded-lg hover:bg-secondary transition-colors"
+                >
+                  İptal
+                </button>
+                <button
+                  onClick={handleReject}
+                  className="px-4 py-2 rounded-lg bg-destructive text-white hover:bg-destructive/90 transition-colors"
+                >
+                  <XCircle size={14} className="mr-1 inline-block" />
+                  Reddet
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default DekontInceleme;
 
