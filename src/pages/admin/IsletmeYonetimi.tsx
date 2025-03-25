@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import {
   Building,
@@ -23,6 +22,7 @@ interface Business {
   taxNumber: string;
   email: string;
   username: string;
+  password?: string; // Add the password field as optional
   logo?: string;
 }
 
