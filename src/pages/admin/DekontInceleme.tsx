@@ -1,4 +1,3 @@
-
 import { useState, useRef } from "react";
 import {
   Search,
@@ -22,6 +21,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useNotification } from "@/hooks/useNotification";
 
 // Dekont tipini tanımlama
 interface Receipt {
@@ -108,6 +108,7 @@ const DekontInceleme = () => {
   const imageRef = useRef<HTMLImageElement>(null);
 
   const { toast } = useToast();
+  const { addNotification } = useNotification();
 
   const filteredReceipts = receipts.filter((receipt) => {
     const matchesSearch =
@@ -126,7 +127,6 @@ const DekontInceleme = () => {
     setZoomLevel(100);
     setRotation(0);
     
-    // Mevcut notu yükle
     const receipt = receipts.find(r => r.id === receiptId);
     setNoteText(receipt?.notes || "");
   };
@@ -150,6 +150,9 @@ const DekontInceleme = () => {
   };
 
   const handleApprove = (receiptId: string) => {
+    const receipt = receipts.find(r => r.id === receiptId);
+    if (!receipt) return;
+    
     setReceipts((prev) =>
       prev.map((r) =>
         r.id === receiptId
@@ -162,6 +165,12 @@ const DekontInceleme = () => {
       title: "Dekont Onaylandı",
       description: "Dekont başarıyla onaylandı.",
       variant: "default",
+    });
+    
+    addNotification({
+      title: "Dekont Onaylandı",
+      message: `${receipt.studentName} adlı öğrencinin ${receipt.amount.toLocaleString('tr-TR')} ₺ tutarındaki dekontu onaylandı.`,
+      type: "success",
     });
   };
 
@@ -176,6 +185,9 @@ const DekontInceleme = () => {
       });
       return;
     }
+
+    const receipt = receipts.find(r => r.id === currentReceiptId);
+    if (!receipt) return;
 
     setReceipts((prev) =>
       prev.map((r) =>
@@ -193,6 +205,12 @@ const DekontInceleme = () => {
       title: "Dekont Reddedildi",
       description: "Dekont reddedildi ve işletmeye bildirim gönderildi.",
       variant: "destructive",
+    });
+    
+    addNotification({
+      title: "Dekont Reddedildi",
+      message: `${receipt.studentName} adlı öğrencinin dekontu reddedildi. Neden: ${rejectionReason}${rejectionNote ? ': ' + rejectionNote : ''}`,
+      type: "error",
     });
 
     closeRejectionDialog();
@@ -221,11 +239,14 @@ const DekontInceleme = () => {
 
   const saveNote = () => {
     if (selectedReceiptId) {
+      const receipt = receipts.find(r => r.id === selectedReceiptId);
+      if (!receipt) return;
+      
       setReceipts(prev => 
-        prev.map(receipt => 
-          receipt.id === selectedReceiptId 
-            ? { ...receipt, notes: noteText }
-            : receipt
+        prev.map(r => 
+          r.id === selectedReceiptId 
+            ? { ...r, notes: noteText }
+            : r
         )
       );
       
@@ -236,6 +257,14 @@ const DekontInceleme = () => {
         description: "Dekont için notunuz başarıyla kaydedildi.",
         variant: "default",
       });
+      
+      if (noteText && noteText.trim() !== "") {
+        addNotification({
+          title: "Dekont Notları Güncellendi",
+          message: `${receipt.studentName} adlı öğrencinin dekontuna not eklendi.`,
+          type: "info",
+        });
+      }
     }
   };
 
@@ -625,13 +654,13 @@ const DekontInceleme = () => {
                           <div className="flex justify-end gap-2">
                             <button
                               onClick={() => setIsAddingNote(false)}
-                              className="px-4 py-2 border rounded-lg hover:bg-secondary transition-colors text-sm"
+                              className="px-4 py-2 border rounded-lg hover:bg-secondary transition-colors"
                             >
                               İptal
                             </button>
                             <button
                               onClick={saveNote}
-                              className="px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-sm"
+                              className="px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
                             >
                               <Save size={14} className="mr-1 inline-block" />
                               Kaydet
@@ -660,85 +689,6 @@ const DekontInceleme = () => {
                             handleApprove(selectedReceiptId);
                             closeImagePreview();
                           }}
-                          className="px-4 py-2 rounded-lg bg-success text-white hover:bg-success/90 transition-colors text-sm"
-                        >
-                          <CheckCircle size={14} className="mr-1 inline-block" />
-                          Onayla
-                        </button>
-                        <button
-                          onClick={() => {
-                            openRejectionDialog(selectedReceiptId);
-                            closeImagePreview();
-                          }}
-                          className="px-4 py-2 rounded-lg bg-destructive text-white hover:bg-destructive/90 transition-colors text-sm"
-                        >
-                          <XCircle size={14} className="mr-1 inline-block" />
-                          Reddet
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+                          className="px-4 py-2 rounded-lg bg-success text-white hover:bg-success/90 transition-colors"
+                       
 
-      {/* Red Nedeni Modal */}
-      {isRejectionDialogOpen && (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-          <div className="relative max-w-md w-full bg-background rounded-xl shadow-lg animate-scale-in">
-            <div className="p-6">
-              <h3 className="text-lg font-semibold mb-4">Dekont Red Nedeni</h3>
-              
-              <div className="mb-4">
-                <label className="block text-sm font-medium mb-1">Red Nedeni</label>
-                <select
-                  className="input-field w-full"
-                  value={rejectionReason}
-                  onChange={(e) => setRejectionReason(e.target.value)}
-                >
-                  <option value="">Bir neden seçin...</option>
-                  <option value="Eksik bilgi">Eksik bilgi</option>
-                  <option value="Yanlış format">Yanlış format</option>
-                  <option value="Okunamıyor">Okunamıyor</option>
-                  <option value="Hatalı tutar">Hatalı tutar</option>
-                  <option value="Geçersiz tarih">Geçersiz tarih</option>
-                  <option value="Diğer">Diğer</option>
-                </select>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium mb-1">Ek Açıklama (İsteğe Bağlı)</label>
-                <textarea
-                  className="input-field w-full resize-none h-24"
-                  placeholder="Ek açıklama girin..."
-                  value={rejectionNote}
-                  onChange={(e) => setRejectionNote(e.target.value)}
-                ></textarea>
-              </div>
-            </div>
-            
-            <div className="border-t p-4 flex justify-end gap-3">
-              <button
-                onClick={closeRejectionDialog}
-                className="px-4 py-2 border rounded-lg hover:bg-secondary transition-colors"
-              >
-                İptal
-              </button>
-              <button
-                onClick={handleReject}
-                className="bg-destructive text-destructive-foreground px-4 py-2 rounded-lg hover:bg-destructive/90 transition-colors"
-              >
-                Reddet
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-export default DekontInceleme;

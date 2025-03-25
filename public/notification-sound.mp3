@@ -1,0 +1,5 @@
+
+// Bu aslında bir binary dosya, burada içerik ekleyemeyiz. 
+// Kullanıcıların ses dosyasını public klasörüne eklemeleri gerekiyor.
+// Bu dosya otomatik olarak sisteme eklenemez. Lütfen bir mp3 ses dosyasını
+// "notification-sound.mp3" adıyla public klasörüne yükleyin.

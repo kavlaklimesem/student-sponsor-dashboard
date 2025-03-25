@@ -2,6 +2,7 @@
 import { Link, Outlet, useNavigate } from "react-router-dom";
 import { LogOut } from "lucide-react";
 import { useState, useEffect } from "react";
+import NotificationCenter from "../NotificationCenter";
 
 const BusinessLayout = () => {
   const navigate = useNavigate();
@@ -31,13 +32,17 @@ const BusinessLayout = () => {
             <h1 className="font-semibold text-lg sm:block hidden">{businessName}</h1>
             <h1 className="font-semibold text-lg sm:hidden">İşletme Panel</h1>
           </div>
-          <button
-            onClick={handleLogout}
-            className="flex items-center space-x-2 p-2 rounded-lg hover:bg-secondary transition-colors text-destructive"
-          >
-            <LogOut className="w-5 h-5" />
-            <span className="sm:inline hidden">Çıkış Yap</span>
-          </button>
+          
+          <div className="flex items-center gap-3">
+            <NotificationCenter />
+            <button
+              onClick={handleLogout}
+              className="flex items-center space-x-2 p-2 rounded-lg hover:bg-secondary transition-colors text-destructive"
+            >
+              <LogOut className="w-5 h-5" />
+              <span className="sm:inline hidden">Çıkış Yap</span>
+            </button>
+          </div>
         </div>
       </header>
 
