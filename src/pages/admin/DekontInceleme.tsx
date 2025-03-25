@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   Search,
   Filter,
@@ -8,12 +8,20 @@ import {
   AlertCircle,
   ChevronDown,
   ZoomIn,
+  ZoomOut,
   Printer,
   Download,
   X,
+  Plus,
+  Minus,
+  RotateCw,
+  Trash2,
+  PencilLine,
+  Save,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 // Dekont tipini tanımlama
 interface Receipt {
@@ -25,6 +33,7 @@ interface Receipt {
   status: "inceleme" | "onay" | "red";
   rejectionReason?: string;
   image: string;
+  notes?: string;
 }
 
 // Örnek dekont resimleri
@@ -87,10 +96,16 @@ const DekontInceleme = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "inceleme" | "onay" | "red">("all");
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [selectedReceiptId, setSelectedReceiptId] = useState<string | null>(null);
   const [isRejectionDialogOpen, setIsRejectionDialogOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
   const [rejectionNote, setRejectionNote] = useState("");
   const [currentReceiptId, setCurrentReceiptId] = useState<string | null>(null);
+  const [zoomLevel, setZoomLevel] = useState(100);
+  const [rotation, setRotation] = useState(0);
+  const [isAddingNote, setIsAddingNote] = useState(false);
+  const [noteText, setNoteText] = useState("");
+  const imageRef = useRef<HTMLImageElement>(null);
 
   const { toast } = useToast();
 
@@ -105,12 +120,21 @@ const DekontInceleme = () => {
     return matchesSearch && matchesStatus;
   });
 
-  const openImagePreview = (imageUrl: string) => {
+  const openImagePreview = (imageUrl: string, receiptId: string) => {
     setSelectedImage(imageUrl);
+    setSelectedReceiptId(receiptId);
+    setZoomLevel(100);
+    setRotation(0);
+    
+    // Mevcut notu yükle
+    const receipt = receipts.find(r => r.id === receiptId);
+    setNoteText(receipt?.notes || "");
   };
 
   const closeImagePreview = () => {
     setSelectedImage(null);
+    setSelectedReceiptId(null);
+    setIsAddingNote(false);
   };
 
   const openRejectionDialog = (receiptId: string) => {
@@ -172,6 +196,95 @@ const DekontInceleme = () => {
     });
 
     closeRejectionDialog();
+  };
+
+  const zoomIn = () => {
+    setZoomLevel(prev => Math.min(prev + 20, 200));
+  };
+
+  const zoomOut = () => {
+    setZoomLevel(prev => Math.max(prev - 20, 40));
+  };
+
+  const resetZoom = () => {
+    setZoomLevel(100);
+    setRotation(0);
+  };
+
+  const rotateImage = () => {
+    setRotation(prev => (prev + 90) % 360);
+  };
+
+  const toggleNoteEditor = () => {
+    setIsAddingNote(!isAddingNote);
+  };
+
+  const saveNote = () => {
+    if (selectedReceiptId) {
+      setReceipts(prev => 
+        prev.map(receipt => 
+          receipt.id === selectedReceiptId 
+            ? { ...receipt, notes: noteText }
+            : receipt
+        )
+      );
+      
+      setIsAddingNote(false);
+      
+      toast({
+        title: "Not Kaydedildi",
+        description: "Dekont için notunuz başarıyla kaydedildi.",
+        variant: "default",
+      });
+    }
+  };
+
+  const downloadImage = () => {
+    if (selectedImage) {
+      const link = document.createElement('a');
+      link.href = selectedImage;
+      link.download = `dekont-${selectedReceiptId}.jpg`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast({
+        title: "Dekont İndirildi",
+        description: "Dekont başarıyla indirildi.",
+        variant: "default",
+      });
+    }
+  };
+
+  const printImage = () => {
+    if (imageRef.current) {
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(`
+          <html>
+            <head>
+              <title>Dekont Yazdır</title>
+              <style>
+                body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; }
+                img { max-width: 100%; max-height: 100vh; }
+              </style>
+            </head>
+            <body>
+              <img src="${selectedImage}" />
+              <script>
+                window.onload = function() {
+                  setTimeout(function() {
+                    window.print();
+                    window.close();
+                  }, 500);
+                };
+              </script>
+            </body>
+          </html>
+        `);
+        printWindow.document.close();
+      }
+    }
   };
 
   const getStatusBadge = (status: "inceleme" | "onay" | "red") => {
@@ -286,14 +399,21 @@ const DekontInceleme = () => {
                     <td className="p-4">{getStatusBadge(receipt.status)}</td>
                     <td className="p-4">
                       <div 
-                        className="w-16 h-16 rounded border overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
-                        onClick={() => openImagePreview(receipt.image)}
+                        className="w-16 h-16 rounded border overflow-hidden cursor-pointer hover:opacity-80 transition-opacity relative group"
+                        onClick={() => openImagePreview(receipt.image, receipt.id)}
                       >
                         <img
                           src={receipt.image}
                           alt="Dekont"
                           className="w-full h-full object-cover"
                         />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                          <ZoomIn size={20} className="text-white" />
+                        </div>
+                        {receipt.notes && (
+                          <div className="absolute top-0 right-0 w-4 h-4 bg-primary rounded-full m-1" 
+                               title="Bu dekont için not bulunuyor"></div>
+                        )}
                       </div>
                     </td>
                     <td className="p-4 text-right">
@@ -355,26 +475,211 @@ const DekontInceleme = () => {
         )}
       </div>
 
-      {/* Resim Önizleme Modal */}
+      {/* Gelişmiş Resim Önizleme Modal */}
       {selectedImage && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={closeImagePreview}>
-          <div className="relative max-w-3xl w-full bg-background rounded-xl p-4 animate-scale-in" onClick={(e) => e.stopPropagation()}>
-            <div className="absolute top-4 right-4 flex gap-2">
-              <button className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors">
-                <Printer size={18} />
-              </button>
-              <button className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors">
-                <Download size={18} />
-              </button>
-              <button
-                onClick={closeImagePreview}
-                className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
-              >
-                <X size={18} />
-              </button>
+          <div className="relative max-w-4xl w-full bg-background rounded-xl shadow-2xl animate-scale-in" onClick={(e) => e.stopPropagation()}>
+            <div className="p-4 border-b flex items-center justify-between">
+              <h3 className="text-lg font-medium">Dekont Önizleme</h3>
+              <div className="flex gap-2">
+                <button 
+                  onClick={rotateImage}
+                  className="p-2 rounded-full hover:bg-secondary transition-colors"
+                  title="Döndür"
+                >
+                  <RotateCw size={18} />
+                </button>
+                <button 
+                  onClick={zoomIn}
+                  className="p-2 rounded-full hover:bg-secondary transition-colors"
+                  title="Yakınlaştır"
+                >
+                  <Plus size={18} />
+                </button>
+                <button 
+                  onClick={zoomOut}
+                  className="p-2 rounded-full hover:bg-secondary transition-colors"
+                  title="Uzaklaştır"
+                >
+                  <Minus size={18} />
+                </button>
+                <button 
+                  onClick={resetZoom}
+                  className="p-2 rounded-full hover:bg-secondary transition-colors"
+                  title="Sıfırla"
+                >
+                  <AlertCircle size={18} />
+                </button>
+                <button 
+                  onClick={printImage}
+                  className="p-2 rounded-full hover:bg-secondary transition-colors"
+                  title="Yazdır"
+                >
+                  <Printer size={18} />
+                </button>
+                <button 
+                  onClick={downloadImage}
+                  className="p-2 rounded-full hover:bg-secondary transition-colors"
+                  title="İndir"
+                >
+                  <Download size={18} />
+                </button>
+                <button 
+                  onClick={toggleNoteEditor}
+                  className="p-2 rounded-full hover:bg-secondary transition-colors"
+                  title="Not Ekle/Düzenle"
+                >
+                  <PencilLine size={18} />
+                </button>
+                <button
+                  onClick={closeImagePreview}
+                  className="p-2 rounded-full hover:bg-secondary transition-colors"
+                  title="Kapat"
+                >
+                  <X size={18} />
+                </button>
+              </div>
             </div>
-            <div className="mt-8 max-h-[70vh] overflow-auto">
-              <img src={selectedImage} alt="Dekont Önizleme" className="w-full" />
+            
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 p-4">
+              <div className="lg:col-span-2 overflow-hidden flex justify-center items-center bg-black/5 rounded-lg h-[60vh]">
+                <div 
+                  className="relative overflow-auto h-full w-full flex items-center justify-center"
+                  style={{ 
+                    padding: `${zoomLevel > 100 ? '20px' : '0'}`,
+                  }}
+                >
+                  <img 
+                    ref={imageRef}
+                    src={selectedImage} 
+                    alt="Dekont Önizleme" 
+                    className="transition-transform duration-200 ease-out"
+                    style={{ 
+                      transform: `scale(${zoomLevel/100}) rotate(${rotation}deg)`,
+                      transformOrigin: 'center center',
+                      maxHeight: zoomLevel > 100 ? 'none' : '100%',
+                      maxWidth: zoomLevel > 100 ? 'none' : '100%',
+                    }}
+                  />
+                </div>
+              </div>
+              
+              <div className="lg:col-span-1">
+                {selectedReceiptId && (
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="text-sm font-medium text-muted-foreground mb-1">Öğrenci</h4>
+                      <p className="font-medium">
+                        {receipts.find(r => r.id === selectedReceiptId)?.studentName}
+                      </p>
+                    </div>
+                    
+                    <div>
+                      <h4 className="text-sm font-medium text-muted-foreground mb-1">İşletme</h4>
+                      <p className="font-medium">
+                        {receipts.find(r => r.id === selectedReceiptId)?.businessName}
+                      </p>
+                    </div>
+                    
+                    <div>
+                      <h4 className="text-sm font-medium text-muted-foreground mb-1">Tutar</h4>
+                      <p className="font-medium">
+                        {receipts.find(r => r.id === selectedReceiptId)?.amount.toLocaleString('tr-TR')} ₺
+                      </p>
+                    </div>
+                    
+                    <div>
+                      <h4 className="text-sm font-medium text-muted-foreground mb-1">Tarih</h4>
+                      <p className="font-medium">
+                        {new Date(receipts.find(r => r.id === selectedReceiptId)?.date || "").toLocaleDateString('tr-TR')}
+                      </p>
+                    </div>
+                    
+                    <div>
+                      <h4 className="text-sm font-medium text-muted-foreground mb-1">Durum</h4>
+                      <div className="font-medium">
+                        {getStatusBadge(receipts.find(r => r.id === selectedReceiptId)?.status || "inceleme")}
+                      </div>
+                    </div>
+                    
+                    {receipts.find(r => r.id === selectedReceiptId)?.status === "red" && (
+                      <div>
+                        <h4 className="text-sm font-medium text-muted-foreground mb-1">Red Nedeni</h4>
+                        <p className="font-medium text-destructive">
+                          {receipts.find(r => r.id === selectedReceiptId)?.rejectionReason}
+                        </p>
+                      </div>
+                    )}
+                    
+                    <div className="pt-2">
+                      <h4 className="text-sm font-medium text-muted-foreground mb-2">Notlar</h4>
+                      
+                      {isAddingNote ? (
+                        <div className="space-y-2">
+                          <textarea
+                            value={noteText}
+                            onChange={(e) => setNoteText(e.target.value)}
+                            placeholder="Dekont için not ekleyin..."
+                            className="w-full p-2 border rounded-lg h-32 resize-none"
+                          />
+                          <div className="flex justify-end gap-2">
+                            <button
+                              onClick={() => setIsAddingNote(false)}
+                              className="px-4 py-2 border rounded-lg hover:bg-secondary transition-colors text-sm"
+                            >
+                              İptal
+                            </button>
+                            <button
+                              onClick={saveNote}
+                              className="px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-sm"
+                            >
+                              <Save size={14} className="mr-1 inline-block" />
+                              Kaydet
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="min-h-[60px] border rounded-lg p-3 bg-secondary/20">
+                          {receipts.find(r => r.id === selectedReceiptId)?.notes ? (
+                            <p className="text-sm whitespace-pre-wrap">
+                              {receipts.find(r => r.id === selectedReceiptId)?.notes}
+                            </p>
+                          ) : (
+                            <p className="text-sm text-muted-foreground">
+                              Bu dekont için not bulunmuyor. Not eklemek için kalem simgesine tıklayın.
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    
+                    {receipts.find(r => r.id === selectedReceiptId)?.status === "inceleme" && (
+                      <div className="pt-2 border-t flex gap-2 justify-end">
+                        <button
+                          onClick={() => {
+                            handleApprove(selectedReceiptId);
+                            closeImagePreview();
+                          }}
+                          className="px-4 py-2 rounded-lg bg-success text-white hover:bg-success/90 transition-colors text-sm"
+                        >
+                          <CheckCircle size={14} className="mr-1 inline-block" />
+                          Onayla
+                        </button>
+                        <button
+                          onClick={() => {
+                            openRejectionDialog(selectedReceiptId);
+                            closeImagePreview();
+                          }}
+                          className="px-4 py-2 rounded-lg bg-destructive text-white hover:bg-destructive/90 transition-colors text-sm"
+                        >
+                          <XCircle size={14} className="mr-1 inline-block" />
+                          Reddet
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
